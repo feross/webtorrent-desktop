@@ -6,10 +6,13 @@ crashReporter.init()
 const dragDrop = require('drag-drop')
 const electron = require('electron')
 const fs = require('fs')
+const IntlMessageFormat = require('intl-messageformat')
 const React = require('react')
 const ReactDOM = require('react-dom')
+const ReactIntl = require('react-intl')
 
 const config = require('../config')
+const i18n = require('../i18n')
 const telemetry = require('./lib/telemetry')
 const sound = require('./lib/sound')
 const State = require('./lib/state')
@@ -74,7 +77,8 @@ function onState (err, _state) {
   state.location.go({
     url: 'home',
     setup: (cb) => {
-      state.window.title = config.APP_WINDOW_TITLE
+      state.window.title = new IntlMessageFormat(
+          i18n.LOCALE_MESSAGES['app-window-title'] || config.APP_WINDOW_TITLE, i18n.LANGUAGE).format()
       cb(null)
     }
   })
@@ -86,7 +90,18 @@ function onState (err, _state) {
   // Do this at least once a second to give every file in every torrentSummary
   // a progress bar and to keep the cursor in sync when playing a video
   setInterval(update, 1000)
-  app = ReactDOM.render(<App state={state} />, document.querySelector('#body'))
+
+  // Setup locale
+  try {
+    ReactIntl.addLocaleData(require('react-intl/locale-data/' + i18n.LANGUAGE))
+  } catch (e) {
+    ReactIntl.addLocaleData(require('react-intl/locale-data/en'))
+  }
+
+  app = ReactDOM.render(
+    <ReactIntl.IntlProvider locale={i18n.LANGUAGE} messages={i18n.LOCALE_MESSAGES}>
+      <App state={state} />
+    </ReactIntl.IntlProvider>, document.querySelector('#body'))
 
   // Lazy-load other stuff, like the AppleTV module, later to keep startup fast
   window.setTimeout(delayedInit, config.DELAYED_INIT)
