@@ -1,7 +1,9 @@
 const appConfig = require('application-config')('WebTorrent')
+const fs = require('fs')
 const path = require('path')
 const electron = require('electron')
 const arch = require('arch')
+const gaze = require('gaze')
 
 const APP_NAME = 'WebTorrent'
 const APP_TEAM = 'WebTorrent, LLC'
@@ -17,7 +19,7 @@ const IS_PORTABLE = isPortable()
 const UI_HEADER_HEIGHT = 38
 const UI_TORRENT_HEIGHT = 100
 
-module.exports = {
+const exports = module.exports = {
   ANNOUNCEMENT_URL: 'https://webtorrent.io/desktop/announcement',
   AUTO_UPDATE_URL: 'https://webtorrent.io/desktop/update',
   CRASH_REPORT_URL: 'https://webtorrent.io/desktop/crash-report',
@@ -102,6 +104,62 @@ module.exports = {
   UI_TORRENT_HEIGHT: UI_TORRENT_HEIGHT
 }
 
+const configFile = appConfig.filePath
+let config = getConfig()
+const watchers = []
+
+function updateConfig () {
+  config = JSON.parse(fs.readFileSync(configFile))
+}
+
+function watch () {
+  gaze(configFile, function (err) {
+    if (err) {
+      throw err
+    }
+    this.on('changed', () => {
+      try {
+        updateConfig()
+        console.log('WebTorrent configuration reloaded!')
+        watchers.forEach(fn => fn())
+      } catch (err) {
+        // TODO: display notification
+        console.log(`An error occurred loading your configuration (${configFile}): ${err.message}`)
+      }
+    })
+    this.on('error', () => {
+      // Ignore file watching errors
+    })
+  })
+}
+
+// start watching for config changes
+watch()
+
+exports.subscribe = function (fn) {
+  watchers.push(fn)
+  return () => {
+    watchers.splice(watchers.indexOf(fn), 1)
+  }
+}
+
+function getPlugins () {
+  return config.plugins || {}
+}
+exports.getPlugins = getPlugins
+
+exports.getConfigPath = getConfigPath
+exports.getConfig = getConfig
+
+function getConfig () {
+  const config = {}
+  try {
+    return require(configFile)
+  } catch (e) {
+    return config
+  }
+}
+
 function getConfigPath () {
   if (IS_PORTABLE) {
     return PORTABLE_PATH
@@ -144,8 +202,6 @@ function isPortable () {
     // Fast path: Non-Windows platforms should not check for path on disk
     return false
   }
-
-  const fs = require('fs')
 
   try {
     // This line throws if the "Portable Settings" folder does not exist, and does

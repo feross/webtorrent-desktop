@@ -10,8 +10,8 @@ const electron = require('electron')
 
 const config = require('../../config')
 
-function init () {
-  const win = webtorrent.win = new electron.BrowserWindow({
+function init (decorate) {
+  let options = {
     backgroundColor: '#1E1E1E',
     backgroundThrottling: false, // do not throttle animations/timers when page is background
     center: true,
@@ -26,7 +26,9 @@ function init () {
     title: 'webtorrent-hidden-window',
     useContentSize: true,
     width: 150
-  })
+  }
+  if (decorate) options = decorate(options)
+  const win = webtorrent.win = new electron.BrowserWindow(options)
 
   win.loadURL(config.WINDOW_WEBTORRENT)
 
