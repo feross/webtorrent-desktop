@@ -4,7 +4,6 @@ console.time('init')
 
 const crypto = require('crypto')
 const util = require('util')
-const defaultAnnounceList = require('create-torrent').announceList
 const electron = require('electron')
 const fs = require('fs')
 const mm = require('music-metadata')
@@ -18,11 +17,6 @@ const torrentPoster = require('./lib/torrent-poster')
 
 // Send & receive messages from the main window
 const ipc = electron.ipcRenderer
-
-// Force use of webtorrent trackers on all torrents
-global.WEBTORRENT_ANNOUNCE = defaultAnnounceList
-  .map((arr) => arr[0])
-  .filter((url) => url.indexOf('wss://') === 0 || url.indexOf('ws://') === 0)
 
 /**
  * WebTorrent version.
@@ -68,6 +62,8 @@ init()
 function init () {
   listenToClientEvents()
 
+  ipc.on('wt-set-global-trackers', (e, globalTrackers) =>
+    setGlobalTrackers(globalTrackers))
   ipc.on('wt-start-torrenting', (e, torrentKey, torrentID, path, fileModtimes, selections) =>
     startTorrenting(torrentKey, torrentID, path, fileModtimes, selections))
   ipc.on('wt-stop-torrenting', (e, infoHash) =>
@@ -100,6 +96,11 @@ function init () {
 function listenToClientEvents () {
   client.on('warning', (err) => ipc.send('wt-warning', null, err.message))
   client.on('error', (err) => ipc.send('wt-error', null, err.message))
+}
+
+// Sets the default trackers
+function setGlobalTrackers (globalTrackers) {
+  global.WEBTORRENT_ANNOUNCE = globalTrackers
 }
 
 // Starts a given TorrentID, which can be an infohash, magnet URI, etc.
